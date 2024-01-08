@@ -18,6 +18,7 @@ export interface IMusic {
     image: string
     src: string
     authorId: string
+    duration: number
     isPremium: boolean
     albumId?: string
     author?: IUser
@@ -41,6 +42,15 @@ export interface IPlaylist {
     page: number
 }
 
+export interface IComment {
+    id: string
+    mediaId: string
+    authorId: string
+    author: IUser
+    message: string
+    createAt: string
+    updateAt: string
+}
 export interface IFavor {
     id: string
     media: IMusic

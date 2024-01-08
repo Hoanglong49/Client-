@@ -18,6 +18,7 @@ export interface IUser {
     password: string
     avatar: string
     isPremium: boolean
+    listenNumber?: number
     roleCode: ERole
     role?: Role
 }

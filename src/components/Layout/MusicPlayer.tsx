@@ -1,16 +1,19 @@
 import {useAppDispatch, useAppSelector} from '@/app/hook'
 import Player from '@/components/Layout/Controls'
 import {useEffect, useRef, useState} from 'react'
-import {IMusic} from '@/types/music'
+import {IComment, IMusic} from '@/types/music'
 import {setCurrentSong} from '@/features/musicSlice'
 import {useToast} from '../ui/use-toast'
 import {addFavor, delFavor} from '@/features/favorSlice'
+import {getComment, sendComment} from '@/services/music.service'
 
 const MusicPlayer = () => {
     const {toast} = useToast()
     const {user} = useAppSelector((state) => state.auth)
     const {listFavor} = useAppSelector((state) => state.favor)
     const {music, listMusic} = useAppSelector((state) => state.music)
+    const [listComment, setListComment] = useState<IComment[]>()
+    const [newComment, setNewComment] = useState({mediaId: '', message: ''})
     const dispatch = useAppDispatch()
 
     // ref
@@ -20,7 +23,6 @@ const MusicPlayer = () => {
     const [initMusic, setInitMusic] = useState<IMusic | null>(music)
     const [isPlay, setIsPlay] = useState(false)
     const [currentTime, setCurrentTime] = useState(0)
-    const [duration, setDuration] = useState(0)
     const [volume, setVolume] = useState(100)
     const [isLoop, setIsLoop] = useState(false)
     const [isShuffle, setIsShuffle] = useState(false)
@@ -40,6 +42,7 @@ const MusicPlayer = () => {
         if (!song) return
         const isFavor = listFavor?.find((music) => music.mediaId === song.id)
         if (!isFavor) return dispatch(addFavor(song.id))
+        console.log(isFavor)
         dispatch(delFavor(isFavor.id))
     }
 
@@ -102,8 +105,77 @@ const MusicPlayer = () => {
         }
     }
 
+    const handleDownload = async (song: IMusic) => {
+        const audioUrl = song.src
+        if (!user && song.isPremium)
+            return toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Need login to download this music',
+            })
+        if (!user?.isPremium && song.isPremium)
+            return toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Need buy premium to download this music',
+            })
+
+        try {
+            const response = await fetch(audioUrl)
+            const blob = await response.blob()
+
+            const blobUrl = URL.createObjectURL(blob)
+
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.download = song.name.concat('.mp3')
+            link.target = '_blank'
+            document.body.appendChild(link)
+            link.click()
+
+            document.body.removeChild(link)
+
+            URL.revokeObjectURL(blobUrl)
+
+            // navigate(endPoint.download.concat(`/${song.id}`))
+        } catch (error) {
+            console.error('Error downloading audio:', error)
+        }
+    }
+
+    const handleComment = async (id: string) => {
+        const res = await getComment(id)
+        setListComment(res.rows)
+        setNewComment({...newComment, mediaId: id})
+    }
+
+    const changeComment = (comment: string) => {
+        setNewComment({
+            ...newComment,
+            message: comment,
+        })
+    }
+
+    const handleSendComment = async () => {
+        const res = await sendComment(newComment)
+
+        if (res.status === 200)
+            return toast({
+                variant: 'success',
+                title: 'Success',
+                description: `Post Success`,
+            })
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: `Post Error`,
+        })
+    }
+
     useEffect(() => {
+        if (music) setInitMusic(music)
         if (!audio.current) return
+        if (audio.current.volume !== volume) audio.current.volume = volume / 100
         if (!isPlay) return audio.current.pause()
         const isPremium = initMusic?.isPremium || music?.isPremium
         if (!isPremium) return void audio.current.play()
@@ -126,9 +198,7 @@ const MusicPlayer = () => {
             return audio.current.pause()
         }
         audio.current.play()
-        audio.current.volume = volume / 100
-        setDuration(audio.current.duration)
-    }, [isPlay, user, volume, currentTime, music, initMusic])
+    }, [toast, isPlay, user, volume, currentTime, music, initMusic])
 
     return (
         <>
@@ -149,13 +219,19 @@ const MusicPlayer = () => {
                         toggleMusic={toggleMusic}
                         handleNext={handleNextSong}
                         handlePrev={handlePrevSong}
-                        duration={duration}
+                        duration={audio.current?.duration || 0}
                         volume={volume}
                         handleVolume={handleVolume}
                         handleProgress={handleProgress}
                         handleLoop={handleLoop}
                         handleShuffle={handleShuffle}
                         handleFavor={handleFavor}
+                        handleDownload={handleDownload}
+                        initComment={newComment.message}
+                        listComment={listComment || []}
+                        handleComment={handleComment}
+                        changeComment={changeComment}
+                        handleSendComment={handleSendComment}
                     />
                 </>
             )}

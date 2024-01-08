@@ -6,7 +6,6 @@ import {Form, FormControl, FormField, FormDescription, FormItem, FormLabel, Form
 import {Input} from '@/components/ui/input'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Separator} from '@/components/Layout/UI'
-import GoogleIcon from '@/assets/imgs/google.png'
 import {login} from '@/features/authSlice'
 import {useAppDispatch} from '@/app/hook'
 import {DialogContent} from '@/components/ui/dialog'
@@ -37,8 +36,8 @@ const Login = ({handleModal}: Props) => {
     })
 
     const onSubmit = async () => {
-        const res = await dispatch(login(form.getValues()))
-        const msg = res?.error?.message
+        const res = (await dispatch(login(form.getValues()))) as unknown
+        const msg = (res as {error: {message: string}})?.error?.message
 
         if (msg) {
             toast({
@@ -123,7 +122,7 @@ const Login = ({handleModal}: Props) => {
                         <div className='w-full grid gap-y-2'>
                             <Separator children={'or'} />
                             <div className='w-full text-center bg-white p-2 hover:cursor-pointer text-zinc-400 hover:text-zinc-900 font-extrabold uppercase rounded-3xl flex items-center justify-center transition-colors duration-150 ease-linear'>
-                                <img src={GoogleIcon} className='h-8' alt='' />
+                                <img src='/assets/imgs/google.png' className='h-8' alt='' />
                                 <p className=''>Continue with Google</p>
                             </div>
                             <Separator />
