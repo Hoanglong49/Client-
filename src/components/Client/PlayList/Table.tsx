@@ -14,20 +14,35 @@ import {
 } from '@tanstack/react-table'
 
 import {Button} from '@/components/ui/button'
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu'
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table'
 
-import {IMusic, Music} from '@/types/music'
+import {IMusic} from '@/types/music'
 import {useAppDispatch, useAppSelector} from '@/app/hook'
 import {currentSong} from '@/features/musicSlice'
 import {errorValue} from '@/utils/constant'
-import {useToast} from '../ui/use-toast'
+import {useToast} from '@/components/ui/use-toast'
+import {formatTime} from '@/hooks/functions'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {delFromPlaylist} from '@/features/playlistSlice'
 
-type Props = {
-    data: Music[]
+interface IData {
+    id: string
+    index: number
+    song: IMusic
 }
 
-const columns: ColumnDef<Music>[] = [
+type Props = {
+    data: IData[]
+}
+
+const columns: ColumnDef<IData>[] = [
     {
         accessorKey: 'index',
         header: '',
@@ -68,22 +83,21 @@ const columns: ColumnDef<Music>[] = [
         },
     },
     {
+        accessorKey: 'time',
+        header: () => <div className='text-sm'>Time</div>,
+        cell: ({row}) => {
+            const music: IMusic = row.getValue('song')
+
+            return <b className='text-xl font-medium capitalize'>{formatTime(music.duration)}</b>
+        },
+    },
+    {
         id: 'actions',
-        header: () => <div className=''>#</div>,
-        cell: () => {
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild className='-mr-20 '>
-                        <Button variant='ghost' className='h-8 w-8 p-0 border-none'>
-                            <span className='sr-only'>Open menu</span>
-                            <MoreHorizontal className='h-4 w-4 ' />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align='end'>
-                        <DropdownMenuItem>Remove From Favorite</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )
+        enableHiding: false,
+        cell: ({row}) => {
+            const music = row.original
+
+            return <Actions music={music} />
         },
     },
 ]
@@ -157,7 +171,7 @@ const TableMusic = ({data}: Props) => {
                             </TableRow>
                         ))}
                     </TableHeader>
-                    <TableBody className=''>
+                    <TableBody className={``}>
                         {table.getRowModel().rows?.length ?
                             table.getRowModel().rows.map((row) => (
                                 <TableRow
@@ -187,3 +201,31 @@ const TableMusic = ({data}: Props) => {
 }
 
 export default TableMusic
+
+type PAction = {
+    music: IData
+}
+
+export const Actions = ({music}: PAction) => {
+    const dispatch = useAppDispatch()
+
+    const handleDelete = () => {
+        dispatch(delFromPlaylist(music.id))
+    }
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant='ghost' className='h-8 w-8 p-0'>
+                    <span className='sr-only'>Open menu</span>
+                    <MoreHorizontal />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDelete}>Xóa khỏi danh sách</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}

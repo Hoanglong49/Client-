@@ -1,11 +1,10 @@
-import {useAppSelector} from '@/app/hook'
 import {endPoint} from '@/utils/constant'
 import {Loader2, UploadIcon} from 'lucide-react'
 import {Link} from 'react-router-dom'
 import {Input} from '@/components/ui/input'
 import {useEffect, useState} from 'react'
 import {IDataUpload, IMusic} from '@/types/music'
-import {createMusic, getMyMusic, upload} from '@/services/music.service'
+import {createMusic, getMyMusic, upload} from '@/services/upload.service'
 import ListMusic from '@/components/Layout/ListMusic'
 import {Button} from '@/components/ui/button'
 import {
@@ -25,15 +24,15 @@ import {useToast} from '@/components/ui/use-toast'
 
 const Upload = () => {
     const {toast} = useToast()
-    const {user} = useAppSelector((state) => state.auth)
     const [isLoading, setIsLoading] = useState(false)
     const [file, setFile] = useState<File>()
     const [img, setImg] = useState<File>()
     const [data, setData] = useState<IDataUpload>({
-        name: '',
         src: '',
-        image: '',
+        name: '',
         desc: '',
+        image: '',
+        duration: 0,
         isPremium: false,
     })
     const [listSong, setListSong] = useState<IMusic[]>([])
@@ -47,23 +46,37 @@ const Upload = () => {
     const handleUpload = async () => {
         setIsLoading(true)
         let src = data.src,
-            image = data.image
+            image = data.image,
+            duration = data.duration
         if (!src && file) src = await upload(file)
         if (!image && img) image = await upload(img)
-        const uploadData = {...data, src, image}
-        return await createMusic(uploadData).then(() => {
-            setIsLoading(false)
-            toast({
-                variant: 'success',
-                title: 'Success',
-                description: `Upload success`,
-            })
-        })
+        const audio = new Audio(src)
+
+        audio.onloadedmetadata = () => {
+            duration = audio.duration
+            const uploadData = {...data, src, image, duration}
+
+            return createMusic(uploadData)
+                .then(() => {
+                    setIsLoading(false)
+                    toast({
+                        variant: 'success',
+                        title: 'Success',
+                        description: 'Upload success',
+                    })
+                })
+                .catch((error) => {
+                    setIsLoading(false)
+                    console.error('Error:', error)
+                })
+        }
+
+        audio.load()
     }
 
     return (
         <>
-            {!user ?
+            {listSong.length === 0 ?
                 <div className={`w-full h-[850px] overflow-y-scroll flex justify-center items-center`}>
                     <div className='grid gap-3 text-center'>
                         <UploadIcon size={80} className='mx-auto' />

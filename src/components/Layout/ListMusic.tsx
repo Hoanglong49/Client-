@@ -1,42 +1,64 @@
-import {MoreHorizontal, Send} from 'lucide-react'
-import {IComment, IMusic} from '@/types/music'
+import {ArrowDownToLine, Loader2, MoreHorizontal} from 'lucide-react'
+import {IMusic} from '@/types/music'
 import {currentSong} from '@/features/musicSlice'
 import {errorValue} from '@/utils/constant'
 import {useAppDispatch, useAppSelector} from '@/app/hook'
-import {useToast} from '../ui/use-toast'
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu'
+import {useToast} from '@/components/ui/use-toast'
 import {ScrollArea} from '@/components/ui/scroll-area'
-import {Input} from '@/components/ui/input'
-import {Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger} from '@/components/ui/sheet'
-import {getComment, sendComment} from '@/services/music.service'
-import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
+import {formatTime} from '@/hooks/functions'
+import {addDownload} from '@/services/download.service'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+
+import {Button} from '@/components/ui/button'
+import {Label} from '@/components/ui/label'
 import {useState} from 'react'
-import {formatName, formatTime} from '@/hooks/functions'
+import {HoverCard, HoverCardContent, HoverCardTrigger} from '@/components/ui/hover-card'
+import {IAddPlaylist} from '@/types/playlist'
+import {addToPlaylist} from '@/features/playlistSlice'
 
 type Props = {
     listSong: IMusic[]
 }
 
 const ListMusic = ({listSong}: Props) => {
+    const dispatch = useAppDispatch()
     const {toast} = useToast()
     const {music} = useAppSelector((state) => state.music)
     const {user} = useAppSelector((state) => state.auth)
-    const [listComment, setListComment] = useState<IComment[]>()
-    const [newComment, setNewComment] = useState({mediaId: '', message: ''})
-    const dispatch = useAppDispatch()
+    const {myList} = useAppSelector((state) => state.playlist)
+
+    const [isLoading, setIsLoading] = useState<boolean>(false)
+    const [data, setData] = useState<IAddPlaylist>({mediaId: '', playListId: ''})
 
     const handlePlayMusic = async (song: IMusic) => {
         if (!user && song.isPremium)
             return toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Need login to listen this music',
+                description: 'Need login to action',
             })
         if (!user?.isPremium && song.isPremium)
             return toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Need buy premium to listen this music',
+                description: 'Need buy premium to action',
             })
         dispatch(currentSong({song, listSong}))
     }
@@ -72,35 +94,34 @@ const ListMusic = ({listSong}: Props) => {
             document.body.removeChild(link)
 
             URL.revokeObjectURL(blobUrl)
+            return await addDownload(song.id)
         } catch (error) {
             console.error('Error downloading audio:', error)
         }
     }
 
-    const handleComment = async (id: string) => {
-        const res = await getComment(id)
-        setListComment(res.rows)
-        setNewComment({...newComment, mediaId: id})
-    }
-
-    const handleSendComment = async () => {
-        const res = await sendComment(newComment)
-
-        if (res.status === 200)
-            return toast({
+    const handleAddPlaylist = async () => {
+        setIsLoading(true)
+        try {
+            await dispatch(addToPlaylist(data))
+            setIsLoading(false)
+            toast({
                 variant: 'success',
                 title: 'Success',
-                description: `Post Success`,
+                description: `Add song to playlist success`,
             })
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: `Post Error`,
-        })
+        } catch (error) {
+            setIsLoading(false)
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: `Can't add to playlist`,
+            })
+        }
     }
 
     return (
-        <ul className={`${music ? 'h-4/6' : 'h-5/6'} mt-4 fixed w-4/5`}>
+        <ul className={`${music ? 'h-4/6' : 'h-5/6'}  mt-4 fixed w-4/5`}>
             <ScrollArea className='h-full'>
                 {listSong.map((song: IMusic, index: number) => {
                     return (
@@ -136,93 +157,68 @@ const ListMusic = ({listSong}: Props) => {
                             <div className='col-span-1 flex items-center justify-center text-xl'>
                                 {formatTime(song.duration)}
                             </div>
-                            <div className='col-span-1 flex items-center justify-center'>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger>
-                                        <MoreHorizontal size={28} />
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem
-                                            onClick={() => handleDownload(song)}
-                                            className='cursor-pointer'
-                                        >
-                                            Download
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem asChild>
-                                            <Sheet>
-                                                <SheetTrigger
-                                                    className='mt-1 text-sm py-1 pl-2 text-left w-full rounded-sm hover:bg-secondary hover:text-white'
-                                                    onClick={() => handleComment(song.id)}
+                            <div className='col-span-1 flex items-center justify-center gap-4'>
+                                <ArrowDownToLine onClick={() => handleDownload(song)} />
+                                <HoverCard>
+                                    <HoverCardTrigger>
+                                        <MoreHorizontal />
+                                    </HoverCardTrigger>
+                                    <HoverCardContent align='end' className='max-w-fit border-none'>
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button
+                                                    variant='default'
+                                                    className='bg-white text-background hover:bg-secondary hover:text-white'
+                                                    onClick={() => setData({...data, mediaId: song.id})}
                                                 >
-                                                    Comment
-                                                </SheetTrigger>
-                                                <SheetContent className='text-white border-0'>
-                                                    <SheetHeader>
-                                                        <SheetTitle className='uppercase bg-zinc-800 text-white text-opacity-60 mx-auto text-center py-2 rounded-3xl w-5/6'>
-                                                            Comments
-                                                        </SheetTitle>
-                                                    </SheetHeader>
-                                                    <ScrollArea className='grid gap-4 py-4'>
-                                                        {listComment &&
-                                                            listComment.map((comment) => (
-                                                                <div
-                                                                    className='my-2 grid grid-cols-4 items-center gap-4 bg-zinc-700 rounded-xl px-4 py-2'
-                                                                    key={comment.id}
-                                                                >
-                                                                    <Avatar>
-                                                                        <AvatarImage
-                                                                            src={comment.author.avatar || ''}
-                                                                            alt=''
-                                                                            onError={({currentTarget}) => {
-                                                                                currentTarget.onerror = null // prevents looping
-                                                                                currentTarget.src = errorValue.image
-                                                                            }}
-                                                                        />
-                                                                        <AvatarFallback className='text-background text-center'>
-                                                                            {formatName(
-                                                                                comment.author.firstName,
-                                                                                comment.author.lastName,
-                                                                            )}
-                                                                        </AvatarFallback>
-                                                                    </Avatar>
-                                                                    <div className='col-span-3 -ml-4'>
-                                                                        <b>
-                                                                            {formatName(
-                                                                                comment.author.firstName,
-                                                                                comment.author.lastName,
-                                                                            )}
-                                                                        </b>
-                                                                        <p className='line-clamp-4 text-justify'>
-                                                                            {comment.message}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                    </ScrollArea>
-                                                    <SheetFooter>
-                                                        <div className='grid w-full '>
-                                                            <Input
-                                                                id='yourComment'
-                                                                value={newComment.message}
-                                                                placeholder='Enter your comment'
-                                                                className='bg-white text-black'
-                                                                onChange={(e) =>
-                                                                    setNewComment({
-                                                                        ...newComment,
-                                                                        message: e.target.value,
-                                                                    })
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <button type='button' onClick={handleSendComment}>
-                                                            <Send />
-                                                        </button>
-                                                    </SheetFooter>
-                                                </SheetContent>
-                                            </Sheet>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                                    Thêm vào danh sách
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className='sm:max-w-[425px] bg-white text-background'>
+                                                <DialogHeader>
+                                                    <DialogTitle>Danh Sách</DialogTitle>
+                                                    <DialogDescription>
+                                                        Thêm vào sách bài hát theo sở thích của chính bạn
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <div className='grid w-full max-w-sm items-center gap-2'>
+                                                    <Label htmlFor='name'>Tên Danh Sách</Label>
+                                                    <Select
+                                                        onValueChange={(playListId) => setData({...data, playListId})}
+                                                    >
+                                                        <SelectTrigger className='w-full bg-white'>
+                                                            <SelectValue placeholder='Chọn danh sách phát' />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectGroup>
+                                                                <SelectLabel>Danh Sách</SelectLabel>
+                                                                {myList.map((item) => {
+                                                                    return (
+                                                                        <SelectItem key={item.id} value={item.id}>
+                                                                            {item.name}
+                                                                        </SelectItem>
+                                                                    )
+                                                                })}
+                                                            </SelectGroup>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <DialogFooter>
+                                                    {isLoading ?
+                                                        <Button disabled>
+                                                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                                                            Please wait
+                                                        </Button>
+                                                    :   <Button type='button' onClick={handleAddPlaylist}>
+                                                            Tạo
+                                                        </Button>
+                                                    }
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </HoverCardContent>
+                                </HoverCard>
                             </div>
                         </li>
                     )

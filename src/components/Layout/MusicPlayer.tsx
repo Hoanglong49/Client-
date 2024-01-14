@@ -5,7 +5,10 @@ import {IComment, IMusic} from '@/types/music'
 import {setCurrentSong} from '@/features/musicSlice'
 import {useToast} from '../ui/use-toast'
 import {addFavor, delFavor} from '@/features/favorSlice'
-import {getComment, sendComment} from '@/services/music.service'
+import {getComment, sendComment} from '@/services/comment.service'
+import {addDownload} from '@/services/download.service'
+import {addHistory} from '@/services/history.service'
+import {increaseListenMusic} from '@/services/music.service'
 
 const MusicPlayer = () => {
     const {toast} = useToast()
@@ -27,6 +30,12 @@ const MusicPlayer = () => {
     const [isLoop, setIsLoop] = useState(false)
     const [isShuffle, setIsShuffle] = useState(false)
 
+    const isFavor = () => {
+        if (!initMusic) return ''
+        const favor = listFavor?.find((music) => music.media.id === initMusic.id || '')
+        return favor ? 'text-secondary fill-current' : ''
+    }
+
     const toggleMusic = () => {
         setIsPlay(!isPlay)
     }
@@ -42,7 +51,6 @@ const MusicPlayer = () => {
         if (!song) return
         const isFavor = listFavor?.find((music) => music.mediaId === song.id)
         if (!isFavor) return dispatch(addFavor(song.id))
-        console.log(isFavor)
         dispatch(delFavor(isFavor.id))
     }
 
@@ -99,10 +107,15 @@ const MusicPlayer = () => {
         setIsShuffle(!isShuffle)
     }
 
-    const handleEnded = () => {
+    const handlePlay = async (id: string) => {
+        return await addHistory(id)
+    }
+
+    const handleEnded = async () => {
         if (!isLoop) {
             handleNextSong()
         }
+        if (initMusic) return await increaseListenMusic(initMusic.id)
     }
 
     const handleDownload = async (song: IMusic) => {
@@ -137,7 +150,7 @@ const MusicPlayer = () => {
 
             URL.revokeObjectURL(blobUrl)
 
-            // navigate(endPoint.download.concat(`/${song.id}`))
+            return await addDownload(song.id)
         } catch (error) {
             console.error('Error downloading audio:', error)
         }
@@ -173,7 +186,9 @@ const MusicPlayer = () => {
     }
 
     useEffect(() => {
-        if (music) setInitMusic(music)
+        if (music) {
+            setInitMusic(music)
+        }
         if (!audio.current) return
         if (audio.current.volume !== volume) audio.current.volume = volume / 100
         if (!isPlay) return audio.current.pause()
@@ -197,6 +212,7 @@ const MusicPlayer = () => {
             setIsPlay(false)
             return audio.current.pause()
         }
+
         audio.current.play()
     }, [toast, isPlay, user, volume, currentTime, music, initMusic])
 
@@ -207,19 +223,22 @@ const MusicPlayer = () => {
                     <audio
                         ref={audio}
                         src={initMusic?.src || music.src}
+                        onPlay={() => handlePlay(initMusic?.id || music.id)}
                         onTimeUpdate={handleTime}
                         onEnded={handleEnded}
                     />
                     <Player
                         song={initMusic || music}
+                        initTime={audio.current?.currentTime || 0}
                         currentTime={currentTime}
                         isPlay={isPlay}
                         isLoop={isLoop}
                         isShuffle={isShuffle}
+                        isFavor={isFavor()}
                         toggleMusic={toggleMusic}
                         handleNext={handleNextSong}
                         handlePrev={handlePrevSong}
-                        duration={audio.current?.duration || 0}
+                        duration={initMusic?.duration || 0}
                         volume={volume}
                         handleVolume={handleVolume}
                         handleProgress={handleProgress}
