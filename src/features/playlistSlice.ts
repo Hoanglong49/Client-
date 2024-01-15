@@ -1,6 +1,12 @@
 import {createSlice, createAsyncThunk} from '@reduxjs/toolkit'
 import {IAddPlaylist, IPlaylist} from '@/types/playlist'
-import {addSongToPlaylist, delSongFromPlaylist, getMyPlaylist} from '@/services/playlist.service'
+import {
+    addSongToPlaylist,
+    createPlaylist,
+    delSongFromPlaylist,
+    deletePlaylist,
+    getMyPlaylist,
+} from '@/services/playlist.service'
 import {RootState} from '@/app/store'
 
 // Define a type for the slice state
@@ -55,9 +61,27 @@ export const myPlayList = createAsyncThunk<void, void>('playlist/my-list', async
     }
 })
 
+export const newPlaylist = createAsyncThunk('playlist/add', async (name: string, thunkApi) => {
+    try {
+        await createPlaylist(name)
+        thunkApi.dispatch(myPlayList())
+    } catch (error) {
+        return thunkApi.rejectWithValue(error)
+    }
+})
+
 export const addToPlaylist = createAsyncThunk('playlist/add', async (data: IAddPlaylist, thunkApi) => {
     try {
         await addSongToPlaylist(data)
+        thunkApi.dispatch(myPlayList())
+    } catch (error) {
+        return thunkApi.rejectWithValue(error)
+    }
+})
+
+export const delPlaylist = createAsyncThunk<void, string>('playlist/remove', async (id: string, thunkApi) => {
+    try {
+        await deletePlaylist(id)
         thunkApi.dispatch(myPlayList())
     } catch (error) {
         return thunkApi.rejectWithValue(error)
